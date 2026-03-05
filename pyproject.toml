@@ -1,0 +1,28 @@
+[project]
+name = "era_templates_pl"
+version = "0.1.0"
+description = "Dependencies for Empirical Research in Accounting: Python Polars edition"
+requires-python = ">=3.10"
+dependencies = [
+	"db2pq>=0.2.2",
+	"era-py[polars,tables]>=0.0.13",
+	"graphviz",
+	"great-tables",
+	"ipykernel",
+	"ipython",
+	"jupyter-cache",
+	"linearmodels",
+	"matplotlib",
+	"numpy",
+	"pandas",
+	"pdfplumber",
+	"plotnine",
+	"polars",
+	"python-dotenv",
+	"pyfixest",
+	"quarto",
+	"requests",
+	"scipy",
+	"seaborn",
+	"statsmodels",
+]
