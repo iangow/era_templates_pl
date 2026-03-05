@@ -58,9 +58,6 @@ stocknames = load_parquet("stocknames", "crsp")
 dsedist = load_parquet("dsedist", "crsp")
 ```
 
-@Fama:1969wc [p. 3] "define a 'stock split' as an exchange of shares in which at least five shares are distributed for every four formerly outstanding. 
-Thus this definition of splits includes all stock dividends of 25 per cent or greater."
-
 ```{python}
 splits = (
     dsedist
@@ -282,8 +279,6 @@ table2_data = (
 )
 ```
 
-Before proceeding, we check that we have just one row for each split (`permno` and `exdt`) and relative month (`month_gap`).
-
 ```{python}
 (
     table2_data
@@ -295,9 +290,6 @@ Before proceeding, we check that we have just one row for each split (`permno` a
 )
 ```
 
-We now have the data we need to produce @fig-ffjr-2b, our analogue of Figure 2b from @Fama:1969wc [p. 13].
-
-\indexc{geom\_point()}
 ```{python}
 #| label: fig-ffjr-2b
 #| fig-cap: Cumulative average residuals---All splits
@@ -323,13 +315,6 @@ We now have the data we need to produce @fig-ffjr-2b, our analogue of Figure 2b 
 
 ### Data on dividends
 
-Most columns of Table 2 of FFJR and all plots in Figure 3 of FFJR require data on dividends.
-We collect data on dividends from `dsedist`.^[The table `crsp.dsedist` is a subset of the table `crsp.dse` focused on distributions.]
-Ordinary dividends are distinguished from other distributions (e.g., liquidating dividends or exchanges and reorganizations) by the first digit of `distcd`, which is `1` for ordinary dividends.
-
-It turns out that there can be more than one dividend paid in a given month for a given security, so we aggregate dividends by `(permno, month)`.
-
-\indexc{str\_sub()} \indexc{floor\_date()}
 ```{python}
 div_months = (
     dsedist
@@ -340,20 +325,6 @@ div_months = (
 )
 ```
 
-For each month, FFJR define "the *dividend change ratio* as total dividends (per equivalent unsplit share) paid in the twelve months after the split, divided by total dividends paid during the twelve months before the split" @Fama:1969wc [p. 8].
-So, for each month $t$, we want to sum up dividends from month $t -11$ to month $t$ and also dividends for months $t + 1$ through $t + 12$.
-
-Care is needed to calculate dividends "per equivalent unsplit share" as a firm paying 80 cents per share each quarter prior to a 2-for-1 split should be considered to have increased its dividends if it paid 45 cents per share (i.e., 90 cents per *original* share) in each quarter after the split.
-The variable `cfacshr` from `msf` allows us to make the necessary adjustment.^[Note that, as `cfacshr` comes from `crsp.msf`, it is presumably the value applicable at the end of the month.
-It seems possible that a firm could pay a dividend and then split its stock in the same month, in which case applying the end-of-month `cfacshr` to the dividend would be incorrect. 
-For the purposes of this chapter, we ignore this issue, but a careful researcher would investigate further when conducting a proper research study.]
-
-If no dividends are paid on a stock in a given month, we set `divamt` to zero; 
-this allows us to distinguish months where a stock is not an NYSE stock on `crsp.msf` (missing from this table) from ones where it is, but pays no dividend that month (i.e., zero `divamt`).^[We want to do this for every month that a security was an NYSE security, so we start from `msf` and join with `nyse_stocks`.
-Note that we cannot use the `nyse_msf` data frame created above because this is a local data frame and we are using remote data from `div_months` in this analysis.
-This may be a case where a little duplicate code is preferred to shifting data from a local machine to a remote one or vice versa.]
-
-\indexc{floor\_date()} \indexc{left\_join()}
 ```{python}
 #| label: nyse_divs_raw
 nyse_divs_raw = (
@@ -367,15 +338,6 @@ nyse_divs_raw = (
 )
 ```
 
-The following code aggregates the variables needed to calculate the dividend change ratio mentioned above: dividends paid in the twelve months after the split and dividends paid during the twelve months before the split.
-
-To do this, we sort by `permno` and `month`, then use rolling windows within each `permno`.
-The trailing window sums dividends from $t-11$ through $t$.
-The forward window sums dividends from $t+1$ through $t+12$.
-
-Finally, to exclude cases where, say, a stock has listed within the last twelve months or delists in the subsequent twelve months and thereby perhaps makes the calculation of the dividend change ratio less meaningful, we use `.filter(pl.col("mths_trailing") == 12, pl.col("mths_forward") == 12)`.
-
-\indexc{window\_frame()} \indexc{window\_order()}
 ```{python}
 #| label: nyse_divs
 nyse_divs = (
@@ -408,9 +370,6 @@ nyse_divs = (
 )
 ```
 
-Now that we have data on `div_trailing` and `div_forward` for every `(permno, month)` combination on NYSE, we can use these data to calculate the dividend change ratio (`div_ratio`) for each of the split months on `nyse_splits`.
-
-\indexc{left\_join()}
 ```{python}
 #| label: split_firm_dividends
 #| cache: false
@@ -427,9 +386,6 @@ split_firm_dividends = (
     .select("permno", "month", "exdt", "div_ratio")
 )
 ```
-
-@Fama:1969wc [p. 8] measure dividend changes "relative to the average dividends paid by all securities on the New York Stock Exchange during the relevant time periods. ... Dividend 'increases' are then defined as cases where the dividend change ratio of the split stock is greater than the ratio for the Exchange as a whole."
-We calculate the "market" dividend change ratio (`mkt_div_ratio`) by averaging the `div_trailing` and `div_forward` values for each `month` across all stocks.
 
 ```{python}
 div_mkt = (
@@ -448,10 +404,6 @@ div_mkt = (
 )
 ```
 
-We can then combine data on split- and market-level dividend change ratios for each month in which there is a split to calculate `up_div`, which is an indicator for the dividend change ratios for a stock undergoing a split being greater than that for the market in that month.
-
-@Fama:1969wc [p. 9] do not pretend that their measure of dividend increases is perfect and merely use it as "a simple and convenient way of ... classifying year-to-year dividend changes for individual securities."^[See @Fama:1969wc [p. 9] for discussion of some limitations of the measure.]
-
 ```{python}
 dividends_file = (
     split_firm_dividends
@@ -461,8 +413,6 @@ dividends_file = (
 )
 ```
 
-Finally, we can combine data on relative dividend change ratios with abnormal return data. \indexc{left\_join()}
-
 ```{python}
 table2_w_divs = (
     table2_data
@@ -470,9 +420,6 @@ table2_w_divs = (
 )
 ```
 
-We can now produce @fig-ffjr-3c, our analogue of Figure 3c from @Fama:1969wc [p. 15].
-
-\indexc{geom\_point()}
 ```{python}
 #| label: fig-ffjr-3c
 #| fig-height: 3
@@ -498,9 +445,6 @@ We can now produce @fig-ffjr-3c, our analogue of Figure 3c from @Fama:1969wc [p.
 )
 ```
 
-@fig-ffjr-3d provides our equivalent of Figure 3d from @Fama:1969wc [p. 15].
-
-\indexc{geom\_point()}
 ```{python}
 #| label: fig-ffjr-3d
 #| fig-height: 3
